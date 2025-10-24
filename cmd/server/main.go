@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"vmqfox-api-go/internal/config"
 	"vmqfox-api-go/internal/handler"
 	"vmqfox-api-go/internal/middleware"
+	"vmqfox-api-go/internal/model"
 	"vmqfox-api-go/internal/repository"
 	"vmqfox-api-go/internal/scheduler"
 	"vmqfox-api-go/internal/service"
@@ -20,6 +22,7 @@ import (
 	"vmqfox-api-go/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -39,9 +42,10 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// 跳过自动迁移，因为表已经存在且有外键约束
-	// 如果需要迁移，请手动执行SQL
-	log.Println("Skipping auto migration - using existing database schema")
+	// 检查并初始化数据库
+	if err := checkAndInitDatabase(db); err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
 
 	// 初始化JWT管理器
 	jwtManager := jwt.NewJWTManager(&config.AppConfig.JWT)
@@ -314,4 +318,114 @@ func corsMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// checkAndInitDatabase 检查并初始化数据库
+func checkAndInitDatabase(db *gorm.DB) error {
+	// 检查users表是否存在
+	if !db.Migrator().HasTable(&model.User{}) {
+		log.Println("Database not initialized, starting auto migration...")
+
+		// 自动迁移所有表
+		if err := db.AutoMigrate(
+			&model.User{},
+			&model.Order{},
+			&model.PayQrcode{},
+			&model.GlobalSetting{},
+		); err != nil {
+			return fmt.Errorf("failed to migrate database: %v", err)
+		}
+
+		log.Println("Database migration completed")
+
+		// 创建默认超级管理员
+		if err := createDefaultAdmin(db); err != nil {
+			return fmt.Errorf("failed to create default admin: %v", err)
+		}
+
+		// 创建默认全局设置
+		if err := createDefaultGlobalSettings(db); err != nil {
+			return fmt.Errorf("failed to create default global settings: %v", err)
+		}
+
+		log.Println("Database initialization completed successfully")
+	} else {
+		log.Println("Database already initialized, skipping migration")
+	}
+
+	return nil
+}
+
+// createDefaultAdmin 创建默认超级管理员
+func createDefaultAdmin(db *gorm.DB) error {
+	// 检查是否已存在admin用户
+	var count int64
+	db.Model(&model.User{}).Where("user = ?", "admin").Count(&count)
+	if count > 0 {
+		log.Println("Default admin user already exists, skipping creation")
+		return nil
+	}
+
+	// 加密密码
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	// 生成默认配置
+	now := time.Now().Unix()
+	keyValue := fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%d", now))))
+	appIdValue := "vmqfox_admin"
+	defaultClose := 5
+	defaultPayQf := 1
+	defaultJkstate := 0
+
+	// 创建默认管理员
+	admin := &model.User{
+		User:   "admin",
+		Email:  "admin@vmqfox.local",
+		Pass:   string(hashedPassword),
+		Role:   "super_admin",
+		Status: 1,
+		Key:    &keyValue,
+		AppId:  &appIdValue,
+		Close:  &defaultClose,
+		PayQf:  &defaultPayQf,
+		Jkstate: &defaultJkstate,
+		Created_at: now,
+		Updated_at: now,
+	}
+
+	if err := db.Create(admin).Error; err != nil {
+		return err
+	}
+
+	log.Println("Default admin user created successfully (username: admin, password: admin123)")
+	return nil
+}
+
+// createDefaultGlobalSettings 创建默认全局设置
+func createDefaultGlobalSettings(db *gorm.DB) error {
+	settings := []model.GlobalSetting{
+		{Key: "app_name", Value: "VMQFox"},
+		{Key: "app_version", Value: "2.0.0"},
+		{Key: "register_enabled", Value: "1"},
+		{Key: "register_default_role", Value: "admin"},
+		{Key: "register_require_approval", Value: "0"},
+		{Key: "register_rate_limit", Value: "10"},
+	}
+
+	for _, setting := range settings {
+		// 检查是否已存在
+		var count int64
+		db.Model(&model.GlobalSetting{}).Where("key = ?", setting.Key).Count(&count)
+		if count == 0 {
+			if err := db.Create(&setting).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	log.Println("Default global settings created successfully")
+	return nil
 }

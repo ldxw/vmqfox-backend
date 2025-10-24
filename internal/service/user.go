@@ -63,7 +63,7 @@ func (s *userService) GetUserByID(id uint) (*model.User, error) {
 // CreateUser 创建用户
 func (s *userService) CreateUser(req *model.CreateUserRequest) (*model.User, error) {
 	// 检查用户名是否已存在
-	exists, err := s.userRepo.ExistsByUsername(req.Username)
+	exists, err := s.userRepo.ExistsByUser(req.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -82,10 +82,10 @@ func (s *userService) CreateUser(req *model.CreateUserRequest) (*model.User, err
 
 	// 创建用户对象
 	user := &model.User{
-		Username: req.Username,
-		Email:    req.Email,
-		Password: req.Password, // 密码会在BeforeCreate钩子中自动加密
-		Role:     req.Role,
+		User:  req.Username,
+		Email: req.Email,
+		Pass:  req.Password, // 密码会在BeforeCreate钩子中自动加密
+		Role:  req.Role,
 	}
 
 	// 设置默认角色
@@ -131,15 +131,15 @@ func (s *userService) UpdateUser(id uint, req *model.UpdateUserRequest) (*model.
 	}
 
 	// 检查用户名是否已被其他用户使用
-	if req.Username != "" && req.Username != user.Username {
-		exists, err := s.userRepo.ExistsByUsernameExcludeID(req.Username, id)
+	if req.Username != "" && req.Username != user.User {
+		exists, err := s.userRepo.ExistsByUserExcludeID(req.Username, id)
 		if err != nil {
 			return nil, err
 		}
 		if exists {
 			return nil, ErrUserExists
 		}
-		user.Username = req.Username
+		user.User = req.Username
 	}
 
 	// 检查邮箱是否已被其他用户使用
@@ -231,11 +231,11 @@ func (s *userService) UpdateUserConfig(userID uint, config map[string]interface{
 		switch key {
 		case "user":
 			if v, ok := value.(string); ok {
-				user.User = &v
+				user.User = v
 			}
 		case "pass":
 			if v, ok := value.(string); ok {
-				user.Pass = &v
+				user.Pass = v
 			}
 		case "key":
 			if v, ok := value.(string); ok {

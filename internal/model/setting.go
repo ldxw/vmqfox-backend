@@ -38,9 +38,9 @@ type RegisterConfig struct {
 // SystemConfigRequest 系统配置请求
 type SystemConfigRequest struct {
 	User      string `json:"user" binding:"required"`
-	Pass      string `json:"pass" binding:"required"`
-	NotifyUrl string `json:"notifyUrl" binding:"required,url"`
-	ReturnUrl string `json:"returnUrl" binding:"required,url"`
+	Pass      string `json:"pass"` // 可选，留空则不修改密码
+	NotifyUrl string `json:"notifyUrl" binding:"omitempty,url"`
+	ReturnUrl string `json:"returnUrl" binding:"omitempty,url"`
 	Key       string `json:"key"`
 	AppId     string `json:"appId" binding:"required,min=6,max=32"` // 新增AppID字段
 	Close     string `json:"close"`

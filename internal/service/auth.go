@@ -59,7 +59,7 @@ func NewAuthService(userRepo repository.UserRepository, globalSettingRepo reposi
 // Login 用户登录
 func (s *authService) Login(req *model.LoginRequest) (*model.LoginResponse, error) {
 	// 查找用户
-	user, err := s.userRepo.GetByUsername(req.Username)
+	user, err := s.userRepo.GetByUser(req.Username)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrInvalidCredentials
@@ -80,7 +80,7 @@ func (s *authService) Login(req *model.LoginRequest) (*model.LoginResponse, erro
 	// 生成JWT令牌
 	accessToken, refreshToken, err := s.jwtManager.GenerateTokens(
 		user.Id,
-		user.Username,
+		user.User,
 		user.Role,
 		user.Status,
 	)
@@ -176,7 +176,7 @@ func (s *authService) Register(req *model.RegisterRequest, clientIP string) (*mo
 	}
 
 	// 检查用户名是否已存在
-	exists, err := s.userRepo.ExistsByUsername(req.Username)
+	exists, err := s.userRepo.ExistsByUser(req.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -195,11 +195,11 @@ func (s *authService) Register(req *model.RegisterRequest, clientIP string) (*mo
 
 	// 创建用户对象
 	user := &model.User{
-		Username: req.Username,
-		Email:    req.Email,
-		Password: req.Password,        // 密码会在BeforeCreate钩子中自动加密
-		Role:     config.DefaultRole,  // 使用配置中的默认角色
-		Status:   model.StatusEnabled, // 默认启用
+		User:   req.Username,
+		Email:  req.Email,
+		Pass:   req.Password,          // 密码会在BeforeCreate钩子中自动加密
+		Role:   config.DefaultRole,    // 使用配置中的默认角色
+		Status: model.StatusEnabled,   // 默认启用
 	}
 
 	// 保存用户
@@ -251,7 +251,7 @@ func (s *authService) RefreshToken(refreshToken string) (*model.LoginResponse, e
 	// 生成新的令牌对
 	accessToken, newRefreshToken, err := s.jwtManager.GenerateTokens(
 		user.Id,
-		user.Username,
+		user.User,
 		user.Role,
 		user.Status,
 	)
@@ -296,7 +296,7 @@ func (s *authService) Logout(userID uint) error {
 // createUserSettings 为新用户创建完整的配置数据（已废弃，配置已移至users表）
 func (s *authService) createUserSettings(user *model.User) error {
 	// 配置已在UserService.CreateUser中处理，这里不需要再创建
-	log.Printf("User settings are now managed in users table for user %s (ID: %d)", user.Username, user.Id)
+	log.Printf("User settings are now managed in users table for user %s (ID: %d)", user.User, user.Id)
 	return nil
 }
 

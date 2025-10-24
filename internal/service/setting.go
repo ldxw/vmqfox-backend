@@ -96,8 +96,8 @@ func (s *settingService) GetSystemConfig(userID uint) (*model.SystemConfigRespon
 	}
 
 	return &model.SystemConfigResponse{
-		User:      user.GetUser(),
-		Pass:      user.GetPass(),
+		User:      user.User,
+		Pass:      "", // 不返回密码，保护安全
 		NotifyUrl: user.GetNotifyUrl(),
 		ReturnUrl: user.GetReturnUrl(),
 		Key:       user.GetKey(),
@@ -138,15 +138,15 @@ func (s *settingService) UpdateSystemConfig(userID uint, req *model.SystemConfig
 				log.Printf("Failed to hash password: %v", err)
 				return err
 			}
-			user.Pass = stringPtr(string(hashedBytes))
+			user.Pass = string(hashedBytes)
 		} else {
-			user.Pass = &req.Pass
+			user.Pass = req.Pass
 		}
 	}
 
 	// 更新配置字段
 	if req.User != "" {
-		user.User = &req.User
+		user.User = req.User
 	}
 	if req.NotifyUrl != "" {
 		user.NotifyUrl = &req.NotifyUrl

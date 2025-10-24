@@ -9,16 +9,16 @@ import (
 // UserRepository 用户仓库接口
 type UserRepository interface {
 	GetByID(id uint) (*model.User, error)
-	GetByUsername(username string) (*model.User, error)
+	GetByUser(user string) (*model.User, error)
 	GetByEmail(email string) (*model.User, error)
 	GetByAppID(appId string) (*model.User, error)
 	GetUsers(page, limit int, search string) ([]*model.User, int64, error)
 	Create(user *model.User) error
 	Update(user *model.User) error
 	Delete(id uint) error
-	ExistsByUsername(username string) (bool, error)
+	ExistsByUser(user string) (bool, error)
 	ExistsByEmail(email string) (bool, error)
-	ExistsByUsernameExcludeID(username string, excludeID uint) (bool, error)
+	ExistsByUserExcludeID(user string, excludeID uint) (bool, error)
 	ExistsByEmailExcludeID(email string, excludeID uint) (bool, error)
 	UpdatePasswordDirect(userID uint, hashedPassword string) error
 }
@@ -43,14 +43,14 @@ func (r *userRepository) GetByID(id uint) (*model.User, error) {
 	return &user, nil
 }
 
-// GetByUsername 根据用户名获取用户
-func (r *userRepository) GetByUsername(username string) (*model.User, error) {
-	var user model.User
-	err := r.db.Where("username = ?", username).First(&user).Error
+// GetByUser 根据用户名获取用户
+func (r *userRepository) GetByUser(user string) (*model.User, error) {
+	var userModel model.User
+	err := r.db.Where("user = ?", user).First(&userModel).Error
 	if err != nil {
 		return nil, err
 	}
-	return &user, nil
+	return &userModel, nil
 }
 
 // GetByEmail 根据邮箱获取用户
@@ -82,7 +82,7 @@ func (r *userRepository) GetUsers(page, limit int, search string) ([]*model.User
 
 	// 搜索条件
 	if search != "" {
-		query = query.Where("username LIKE ? OR email LIKE ?", "%"+search+"%", "%"+search+"%")
+		query = query.Where("user LIKE ? OR email LIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
 	// 获取总数
@@ -114,10 +114,10 @@ func (r *userRepository) Delete(id uint) error {
 	return r.db.Delete(&model.User{}, id).Error
 }
 
-// ExistsByUsername 检查用户名是否存在
-func (r *userRepository) ExistsByUsername(username string) (bool, error) {
+// ExistsByUser 检查用户名是否存在
+func (r *userRepository) ExistsByUser(user string) (bool, error) {
 	var count int64
-	err := r.db.Model(&model.User{}).Where("username = ?", username).Count(&count).Error
+	err := r.db.Model(&model.User{}).Where("user = ?", user).Count(&count).Error
 	return count > 0, err
 }
 
@@ -128,10 +128,10 @@ func (r *userRepository) ExistsByEmail(email string) (bool, error) {
 	return count > 0, err
 }
 
-// ExistsByUsernameExcludeID 检查用户名是否存在（排除指定ID）
-func (r *userRepository) ExistsByUsernameExcludeID(username string, excludeID uint) (bool, error) {
+// ExistsByUserExcludeID 检查用户名是否存在（排除指定ID）
+func (r *userRepository) ExistsByUserExcludeID(user string, excludeID uint) (bool, error) {
 	var count int64
-	err := r.db.Model(&model.User{}).Where("username = ? AND id != ?", username, excludeID).Count(&count).Error
+	err := r.db.Model(&model.User{}).Where("user = ? AND id != ?", user, excludeID).Count(&count).Error
 	return count > 0, err
 }
 
@@ -144,5 +144,5 @@ func (r *userRepository) ExistsByEmailExcludeID(email string, excludeID uint) (b
 
 // UpdatePasswordDirect 直接更新用户密码（跳过BeforeUpdate钩子）
 func (r *userRepository) UpdatePasswordDirect(userID uint, hashedPassword string) error {
-	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("password", hashedPassword).Error
+	return r.db.Model(&model.User{}).Where("id = ?", userID).Update("pass", hashedPassword).Error
 }

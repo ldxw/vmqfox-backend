@@ -14,16 +14,14 @@ import (
 // User 用户模型 - 直接使用数据库字段名
 type User struct {
 	// 基本信息
-	Id       uint   `json:"id" gorm:"primarykey"`
-	Username string `json:"username" gorm:"uniqueIndex;size:50;not null"`
-	Email    string `json:"email" gorm:"uniqueIndex;size:100;not null"`
-	Password string `json:"-" gorm:"size:191;not null"`
-	Role     string `json:"role" gorm:"type:enum('super_admin','admin');not null;default:'admin'"`
-	Status   int    `json:"status" gorm:"type:tinyint(1);not null;default:1"`
+	Id     uint   `json:"id" gorm:"primarykey"`
+	User   string `json:"user" gorm:"uniqueIndex;size:50;not null;column:user"`
+	Email  string `json:"email" gorm:"uniqueIndex;size:100;not null"`
+	Pass   string `json:"-" gorm:"size:191;not null;column:pass"`
+	Role   string `json:"role" gorm:"type:enum('super_admin','admin');not null;default:'admin'"`
+	Status int    `json:"status" gorm:"type:tinyint(1);not null;default:1"`
 
 	// API认证配置
-	User  *string `json:"user" gorm:"size:50;column:user"`
-	Pass  *string `json:"pass" gorm:"size:191;column:pass"`
 	Key   *string `json:"key" gorm:"size:191;column:key"`
 	AppId *string `json:"appId" gorm:"uniqueIndex;size:32;column:appId"`
 
@@ -60,12 +58,12 @@ func (User) TableName() string {
 
 // BeforeCreate 创建前钩子
 func (u *User) BeforeCreate(tx *gorm.DB) error {
-	if u.Password != "" {
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if u.Pass != "" {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(u.Pass), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
-		u.Password = string(hashedPassword)
+		u.Pass = string(hashedPassword)
 	}
 
 	now := time.Now().Unix()
@@ -83,7 +81,7 @@ func (u *User) BeforeUpdate(tx *gorm.DB) error {
 
 // CheckPassword 验证密码
 func (u *User) CheckPassword(password string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	err := bcrypt.CompareHashAndPassword([]byte(u.Pass), []byte(password))
 	return err == nil
 }
 
@@ -98,7 +96,7 @@ func (u *User) SetPassword(password string) error {
 	if err != nil {
 		return err
 	}
-	u.Password = string(hashedPassword)
+	u.Pass = string(hashedPassword)
 	return nil
 }
 
@@ -138,22 +136,6 @@ func (u *User) CanModifySystemSettings() bool {
 }
 
 // ==================== 配置字段辅助方法 ====================
-
-// GetUser 获取API用户名
-func (u *User) GetUser() string {
-	if u.User != nil {
-		return *u.User
-	}
-	return ""
-}
-
-// GetPass 获取API密码
-func (u *User) GetPass() string {
-	if u.Pass != nil {
-		return *u.Pass
-	}
-	return ""
-}
 
 // GetKey 获取通信密钥
 func (u *User) GetKey() string {
