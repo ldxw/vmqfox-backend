@@ -70,10 +70,10 @@ jobs:
           DATE_TAG="${{ steps.vars.outputs.date_tag }}"
 
           TAGS=(
-            "${DH_REPO}:latest"
-            "${DH_REPO}:${DATE_TAG}"
-            "${GHCR_REPO}:latest"
-            "${GHCR_REPO}:${DATE_TAG}"
+            "${DH_REPO}:latest-go"
+            "${DH_REPO}:go-${DATE_TAG}"
+            "${GHCR_REPO}:latest-go"
+            "${GHCR_REPO}:go-${DATE_TAG}"
           )
 
           CUSTOM="${{ inputs.custom_tag }}"
