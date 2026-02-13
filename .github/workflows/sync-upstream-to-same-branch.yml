@@ -1,0 +1,80 @@
+name: 同名分支镜像同步（上游 -> Fork）
+
+on:
+  workflow_dispatch:
+    inputs:
+      branches:
+        description: "填写要同步的上游分支名（逗号分隔），将同步到 Fork 同名分支；例如：dev 或 go 或 dev,go（禁止 main/master）"
+        required: true
+        default: "dev,go"
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  UPSTREAM_REPO: hulisang/vmqfox-backend
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout（完整历史）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream & fetch
+        run: |
+          set -e
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch upstream --prune --tags
+
+      - name: Mirror sync to same branch name
+        env:
+          BRANCHES: ${{ inputs.branches }}
+        run: |
+          set -euo pipefail
+
+          RAW="$(echo "${BRANCHES}" | tr -d ' ')"
+          if [ -z "$RAW" ]; then
+            echo "❌ branches 不能为空"
+            exit 1
+          fi
+
+          # 禁止同步 main/master
+          if echo "$RAW" | grep -Eq '(^|,)(main|master)(,|$)'; then
+            echo "❌ 禁止同步 main/master（防止误覆盖默认分支）"
+            exit 1
+          fi
+
+          # 使用 GITHUB_TOKEN 推送回你的 fork
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+          IFS=',' read -ra ARR <<< "$RAW"
+          for b in "${ARR[@]}"; do
+            [ -n "$b" ] || continue
+
+            echo "====== 上游 $b  ->  Fork $b ======"
+
+            # 上游必须存在这个分支，否则直接失败（傻瓜式）
+            if ! git show-ref --verify --quiet "refs/remotes/upstream/$b"; then
+              echo "❌ 上游不存在分支：$b （upstream/$b）"
+              exit 1
+            fi
+
+            # Fork 的同名分支 = 上游同名分支
+            git checkout -B "$b" "upstream/$b"
+            git push -u origin "$b" --force-with-lease
+
+            echo "✅ 同步完成：$b"
+          done
+
+      - name: Done
+        run: echo "✅ 全部同步完成"
