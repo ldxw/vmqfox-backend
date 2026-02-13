@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     GOOS=$TARGETOS \
     GOARCH=$TARGETARCH \
     go build -trimpath -ldflags="-s -w" \
-    -o /out/vmqfox-backend ./cmd/server/main.go
+    -o /out/vmqfox-go-api ./cmd/server/main.go
 
 ########################
 # Runtime (small + non-root)
@@ -41,7 +41,7 @@ RUN apk add --no-cache ca-certificates tzdata && update-ca-certificates \
     && chown -R app:app /app
 
 # 拷贝可执行文件
-COPY --from=builder /out/vmqfox-backend /app/vmqfox-backend
+COPY --from=builder /out/vmqfox-go-api /app/vmqfox-go-api
 
 # 保留示例配置（生产环境建议用 volume 挂载 /app/config.yaml）
 # 如果仓库里没有这个文件，可以删掉这一行
@@ -51,4 +51,4 @@ USER app
 
 EXPOSE 8000
 
-CMD ["/app/vmqfox-backend"]
+CMD ["/app/vmqfox-go-api"]
